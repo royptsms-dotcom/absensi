@@ -78,29 +78,48 @@ class AttendanceController extends Controller
         foreach ($data as $rows) {
             if (count($rows) <= 1) continue; 
 
-            $emptyCounter = 0;
-            for ($i = 1; $i < count($rows); $i++) {
-                $name = $rows[$i][1] ?? null; 
-                $id = $rows[$i][2] ?? '-';
-                $dateTimeStr = $rows[$i][3] ?? null; 
+            // DETEKSI KOLOM OTOMATIS: Cari dimana letak Nama, ID, dan Waktu
+            $colName = 1; // Default
+            $colId = 2;   // Default
+            $colTime = 3; // Default
+            $colDept = 0; // Default
 
-                // Jika baris benar-benar kosong, hitung. Jika sudah 5x kosong beruntun, anggap data sudah habis (Break)
+            // Scan 5 baris pertama untuk mencari Header
+            for ($h = 0; $h < min(5, count($rows)); $h++) {
+                foreach ($rows[$h] as $idx => $cell) {
+                    $cellLower = strtolower(trim($cell));
+                    if (str_contains($cellLower, 'id') || str_contains($cellLower, 'pin') || str_contains($cellLower, 'no.')) $colId = $idx;
+                    if (str_contains($cellLower, 'nama')) $colName = $idx;
+                    if (str_contains($cellLower, 'waktu') || str_contains($cellLower, 'jam') || str_contains($cellLower, 'tanggal')) $colTime = $idx;
+                    if (str_contains($cellLower, 'dept')) $colDept = $idx;
+                }
+            }
+
+            $emptyCounter = 0;
+            for ($i = 0; $i < count($rows); $i++) {
+                $name = $rows[$i][$colName] ?? null; 
+                $id = $rows[$i][$colId] ?? '-';
+                $dateTimeStr = $rows[$i][$colTime] ?? null; 
+
+                // Skip jika ini adalah baris Header
+                if (strtolower($name) == 'nama' || str_contains(strtolower($dateTimeStr), 'waktu')) continue;
+
                 if (empty($name) && empty($dateTimeStr)) {
                     $emptyCounter++;
-                    if ($emptyCounter > 5) break; 
+                    if ($emptyCounter > 10) break; 
                     continue;
                 }
-                $emptyCounter = 0; // Reset jika ketemu data lagi
+                $emptyCounter = 0;
 
                 try {
+                    // Gunakan Carbon::parse untuk lebih fleksibel membaca format tanggal apapun
                     $dateObj = null;
                     if (is_numeric($dateTimeStr)) {
                         $dateObj = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateTimeStr);
                     } else {
-                        $formats = ['d/m/Y H:i:s', 'd/m/Y H:i', 'Y-m-d H:i:s', 'd-m-Y H:i:s', 'm/d/Y H:i:s'];
-                        foreach ($formats as $format) {
-                            try { $dateObj = \Carbon\Carbon::createFromFormat($format, $dateTimeStr); break; } catch (\Exception $e) {}
-                        }
+                        try {
+                            $dateObj = \Carbon\Carbon::parse($dateTimeStr);
+                        } catch (\Exception $e) { continue; }
                     }
 
                     if (!$dateObj) continue;
@@ -111,7 +130,7 @@ class AttendanceController extends Controller
                     $totalRecordsFound++;
                     $dateKey = $dateObj->format('Y-m-d');
                     $name = ucwords(strtolower(trim($name)));
-                    $dept = trim($rows[$i][0] ?? '-'); 
+                    $dept = trim($rows[$i][$colDept] ?? '-'); 
                     $key = $name . '_' . $id;
 
                     if (!isset($attendanceData[$key])) {
@@ -128,8 +147,6 @@ class AttendanceController extends Controller
                             'present' => 0,
                             'late' => 0,
                             'out' => 0,
-                            'absent' => 0,
-                            'leave' => 0,
                         ];
                     }
 
@@ -158,10 +175,11 @@ class AttendanceController extends Controller
             }
         }
 
-
-        if (empty($attendanceData)) {
-            return redirect()->route('rekap.index')->with('error', "Data pada bulan $selectedMonthYear tidak ditemukan. Pastikan kolom sesuai dan bulan dipilih dengan benar.");
+        if ($totalRecordsFound === 0) {
+            return redirect()->route('rekap.index')->with('error', "File terbaca, tapi tidak ada data yang cocok untuk bulan $selectedMonthYear. Coba periksa apakah bulan & tahun yang Anda pilih sudah sesuai dengan isi file tersebut.");
         }
+
+
 
         // Final calculation for Late and Out based on first/last scans
         $finalData = collect($attendanceData)->map(function($item) use ($checkInLimit, $checkOutLimit) {

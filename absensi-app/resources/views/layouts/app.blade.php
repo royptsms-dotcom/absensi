@@ -32,10 +32,14 @@
     <nav class="pc-sidebar">
         <div class="navbar-wrapper">
             <div class="m-header flex items-center py-4 px-6 h-header-height">
-                <a href="{{ route('rekap.index') }}" class="b-brand flex items-center gap-3">
-                    <img src="{{ asset('assets/images/logo-white.svg') }}" class="img-fluid logo logo-lg" alt="logo" />
-                    <img src="{{ asset('assets/images/favicon.svg') }}" class="img-fluid logo logo-sm" alt="logo" />
+                <a href="{{ route('rekap.index') }}" class="b-brand flex items-center gap-3 text-white text-decoration-none">
+                    <img src="{{ asset('assets/images/favicon.svg') }}" class="img-fluid logo" alt="logo" style="width: 35px;" />
+                    <span class="fw-bold" style="font-size: 14px; line-height: 1.2;">Sarana Megamedilab<br>Sentosa</span>
                 </a>
+                <a href="#" class="pc-sidebar-collapse lg:hidden" id="mobile-collapse-sidebar">
+                    <i data-feather="menu"></i>
+                </a>
+
             </div>
             <div class="navbar-content h-[calc(100vh_-_74px)] py-2.5">
                 <ul class="pc-navbar">

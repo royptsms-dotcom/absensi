@@ -72,16 +72,18 @@ class AttendanceController extends Controller
                     if ($recordMonthYear !== $selectedMonthYear) continue;
 
                     $dateKey = $dateObj->format('Y-m-d');
-                    $name = trim($name);
+                    $name = ucwords(strtolower(trim($name)));
                     $dept = trim($rows[$i][0] ?? '-'); 
                     $key = $name . '_' . $id;
 
+
                     if (!isset($attendanceData[$key])) {
-                        // Daftarkan ke Database jika belum ada
-                        \App\Models\Employee::firstOrCreate(
+                        // Daftarkan/Update ke Database agar nama selalu rapi
+                        \App\Models\Employee::updateOrCreate(
                             ['employee_id' => $id],
                             ['name' => $name, 'department' => $dept]
                         );
+
 
                         $attendanceData[$key] = [
                             'id' => $id,
@@ -160,13 +162,81 @@ class AttendanceController extends Controller
 
         $attendanceData = unserialize(base64_decode($dataEncoded));
         
-        // Use Maatwebsite Excel to export
-        // For simplicity, we'll return a simple collection-based export
-        return Excel::download(new class($attendanceData) implements \Maatwebsite\Excel\Concerns\FromCollection, \Maatwebsite\Excel\Concerns\WithHeadings {
+        return Excel::download(new class($attendanceData) implements \Maatwebsite\Excel\Concerns\FromCollection, \Maatwebsite\Excel\Concerns\WithHeadings, \Maatwebsite\Excel\Concerns\WithMapping {
             protected $data;
             public function __construct($data) { $this->data = collect($data); }
+            
             public function collection() { return $this->data; }
-            public function headings(): array { return ['Nama Karyawan', 'Hadir', 'Terlambat', 'Alpa', 'Izin/Sakit']; }
+
+            public function headings(): array 
+            { 
+                return ['ID', 'NAMA KARYAWAN', 'HADIR', 'TERLAMBAT', 'PULANG']; 
+            }
+
+            public function map($row): array
+            {
+                return [
+                    $row['id'],
+                    $row['name'],
+                    $row['present'] . ' hari',
+                    $row['late'],
+                    $row['out']
+                ];
+            }
         }, 'rekap_absensi_' . date('Ymd_His') . '.xlsx');
+    }
+
+    public function exportDetail(Request $request)
+    {
+        $dataJson = $request->query('data');
+        if (!$dataJson) return redirect()->back();
+
+        $employee = json_decode(base64_decode($dataJson), true);
+        
+        $settingsPath = storage_path('app/settings.json');
+        $settings = file_exists($settingsPath) ? json_decode(file_get_contents($settingsPath), true) : ['check_in_limit' => '08:00', 'check_out_limit' => '17:00'];
+
+        return Excel::download(new class($employee, $settings) implements \Maatwebsite\Excel\Concerns\FromCollection, \Maatwebsite\Excel\Concerns\WithHeadings, \Maatwebsite\Excel\Concerns\WithMapping {
+            protected $employee;
+            protected $settings;
+
+            public function __construct($employee, $settings) { 
+                $this->employee = $employee; 
+                $this->settings = $settings;
+            }
+            
+            public function collection() { 
+                $days = $this->employee['present_days'];
+                ksort($days);
+                return collect($days)->map(function($times, $date) {
+                    return array_merge(['date' => $date], $times);
+                });
+            }
+
+            public function headings(): array 
+            { 
+                return ['TANGGAL', 'JAM MASUK', 'JAM PULANG', 'STATUS']; 
+            }
+
+            public function map($row): array
+            {
+                $isSaturday = \Carbon\Carbon::parse($row['date'])->isSaturday();
+                $limit = $isSaturday ? ($this->settings['saturday_in_limit'] ?? '08:00') : ($this->settings['check_in_limit'] ?? '08:00');
+                
+                $status = 'Tepat Waktu';
+                if ($row['first'] == '-') {
+                    $status = 'Tidak Absen Masuk';
+                } elseif ($row['first'] > $limit . ':00') {
+                    $status = 'Terlambat';
+                }
+
+                return [
+                    $row['date'],
+                    $row['first'],
+                    $row['last'],
+                    $status
+                ];
+            }
+        }, 'detail_absensi_' . str_replace(' ', '_', $employee['name']) . '_' . date('Ymd') . '.xlsx');
     }
 }

@@ -19,6 +19,7 @@ Route::prefix('rekap')->name('rekap.')->group(function () {
     Route::get('/', [AttendanceController::class, 'index'])->name('index');
     Route::post('/import', [AttendanceController::class, 'import'])->name('import');
     Route::get('/export', [AttendanceController::class, 'export'])->name('export');
+    Route::get('/export-detail', [AttendanceController::class, 'exportDetail'])->name('export-detail');
 });
 
 Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');

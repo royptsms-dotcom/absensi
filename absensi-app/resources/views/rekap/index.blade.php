@@ -48,10 +48,11 @@
         <div class="card">
             <div class="card-header flex justify-between items-center">
                 <h5>Hasil Rekapan: {{ $selectedMonth }}</h5>
-                <a href="{{ route('rekap.export', ['data' => base64_encode(serialize($attendanceData))]) }}" class="btn btn-success btn-sm shadow-sm">
-                    <i data-feather="download" class="mr-1" style="width:14px"></i> Unduh XLSX
+                <a href="{{ route('rekap.export', ['data' => base64_encode(serialize($attendanceData))]) }}" class="btn btn-success btn-sm shadow-sm d-inline-flex align-items-center" style="white-space: nowrap;">
+                    <i data-feather="download" class="mr-1" style="width:14px; height:14px;"></i> Unduh XLSX
                 </a>
             </div>
+
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
@@ -140,9 +141,15 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            <div class="modal-footer d-flex justify-content-between">
+                <a href="#" id="btnExportDetail" class="btn btn-sm btn-success shadow-sm d-inline-flex align-items-center" style="white-space: nowrap;">
+                    <i data-feather="download" class="me-2" style="width:14px; height:14px;"></i> Unduh XLSX
+                </a>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Tutup</button>
             </div>
+
+
+
         </div>
     </div>
 </div>
@@ -189,6 +196,10 @@
             </tr>`;
             tbody.innerHTML += row;
         });
+
+        // Set Export Link
+        const exportUrl = "{{ route('rekap.export-detail') }}?data=" + btoa(JSON.stringify(data));
+        document.getElementById('btnExportDetail').setAttribute('href', exportUrl);
 
         var myModal = new bootstrap.Modal(document.getElementById('modalDetail'));
         myModal.show();

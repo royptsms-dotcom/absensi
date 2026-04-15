@@ -12,19 +12,35 @@
             <div class="card-body">
                 <form action="{{ route('settings.update') }}" method="POST">
                     @csrf
-                    <div class="mb-4">
-                        <label class="form-label">Batas Scan Masuk (Pagi)</label>
-                        <p class="text-muted small">Karyawan dianggap terlambat jika scan setelah jam ini.</p>
-                        <input type="time" name="check_in_limit" class="form-control" value="{{ $settings['check_in_limit'] ?? '08:00' }}" required>
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <h6 class="mb-3 font-bold text-primary">Reguler (Senin - Jumat)</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Batas Scan Masuk</label>
+                                <input type="time" name="check_in_limit" class="form-control" value="{{ $settings['check_in_limit'] ?? '08:00' }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Batas Scan Pulang</label>
+                                <input type="time" name="check_out_limit" class="form-control" value="{{ $settings['check_out_limit'] ?? '17:00' }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4 border-l pl-4">
+                            <h6 class="mb-3 font-bold text-success">Khusus Hari Sabtu</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Batas Scan Masuk (Sabtu)</label>
+                                <input type="time" name="saturday_in_limit" class="form-control" value="{{ $settings['saturday_in_limit'] ?? '08:00' }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Batas Scan Pulang (Sabtu)</label>
+                                <input type="time" name="saturday_out_limit" class="form-control" value="{{ $settings['saturday_out_limit'] ?? '13:00' }}" required>
+                            </div>
+                        </div>
                     </div>
-                    <div class="mb-4">
-                        <label class="form-label">Batas Scan Pulang (Sore)</label>
-                        <p class="text-muted small">Scan terakhir dianggap "Pulang" jika setelah jam ini.</p>
-                        <input type="time" name="check_out_limit" class="form-control" value="{{ $settings['check_out_limit'] ?? '17:00' }}" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Simpan Pengaturan</button>
+                    <hr class="my-4">
+                    <button type="submit" class="btn btn-primary">Simpan Semua Pengaturan</button>
                 </form>
             </div>
+
         </div>
     </div>
 </div>

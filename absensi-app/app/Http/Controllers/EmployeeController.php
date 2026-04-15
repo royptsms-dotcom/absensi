@@ -8,9 +8,10 @@ class EmployeeController extends Controller
 {
     public function index()
     {
-        $employees = \App\Models\Employee::all();
+        $employees = \App\Models\Employee::orderBy('employee_id', 'asc')->get();
         return view('employees.index', compact('employees'));
     }
+
 
     public function edit($id)
     {

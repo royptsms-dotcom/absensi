@@ -139,7 +139,8 @@ class AttendanceController extends Controller
             }
             // unset($item['present_days']); // Jangan hapus ini agar bisa dipreview
             return $item;
-        })->values()->toArray();
+        })->sortBy('id')->values()->toArray();
+
 
 
 

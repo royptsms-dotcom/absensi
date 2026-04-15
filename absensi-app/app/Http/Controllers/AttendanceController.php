@@ -18,13 +18,26 @@ class AttendanceController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv',
+            'file' => 'required',
             'month_year' => 'required'
         ]);
 
+
         $file = $request->file('file');
-        $data = \Maatwebsite\Excel\Facades\Excel::toArray([], $file);
+        
+        try {
+            // Auto detect format
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $data = [];
+            foreach ($spreadsheet->getWorksheetIterator() as $worksheet) {
+                $data[] = $worksheet->toArray();
+            }
+        } catch (\Exception $e) {
+            return redirect()->route('rekap.index')->with('error', 'Gagal membaca format file: ' . $e->getMessage());
+        }
+
         $selectedMonthYear = $request->month_year; 
+
         
         $standardEntryTime = "08:00:00";
         $attendanceData = [];

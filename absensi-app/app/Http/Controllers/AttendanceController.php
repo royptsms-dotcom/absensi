@@ -28,43 +28,85 @@ class AttendanceController extends Controller
         // Process logic: Summarize data per person
         // This is a dummy logic based on common attendance file structures
         // We will group by name and calculate stats
-        $rows = $data[0]; // Assuming first sheet
-        \Log::info('Excel Data Sample:', ['sample' => array_slice($rows, 0, 5)]);
-
+        $rows = $data[0]; 
         $attendanceData = [];
+        $selectedMonthYear = $request->month_year; // Format: YYYY-MM
+        
+        $standardEntryTime = "08:00:00"; // Nanti bisa diambil dari settings
 
-        // Skip header (usually row 0)
+        // Process each row
+        // Skip header (row 0)
         for ($i = 1; $i < count($rows); $i++) {
-            $name = $rows[$i][0] ?? null; 
-            if (!$name || empty(trim($name))) continue;
+            $name = $rows[$i][1] ?? null; // Column B
+            $dateTimeStr = $rows[$i][3] ?? null; // Column D
 
-            if (!isset($attendanceData[$name])) {
-                $attendanceData[$name] = [
-                    'name' => $name,
-                    'present' => 0,
-                    'late' => 0,
-                    'absent' => 0,
-                    'leave' => 0,
-                ];
-            }
+            if (!$name || !$dateTimeStr) continue;
 
-            $status = strtolower($rows[$i][2] ?? ''); 
-            if (str_contains($status, 'hadir') || str_contains($status, 'masuk') || str_contains($status, 'present')) {
-                $attendanceData[$name]['present']++;
-            } elseif (str_contains($status, 'telat') || str_contains($status, 'terlambat') || str_contains($status, 'late')) {
-                $attendanceData[$name]['late']++;
-            } elseif (str_contains($status, 'alpa') || str_contains($status, 'tanpa') || str_contains($status, 'absent')) {
-                $attendanceData[$name]['absent']++;
-            } elseif (str_contains($status, 'izin') || str_contains($status, 'sakit') || str_contains($status, 'leave')) {
-                $attendanceData[$name]['leave']++;
+            try {
+                // Handle different date formats or Excel serial dates
+                if (is_numeric($dateTimeStr)) {
+                    $dateObj = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateTimeStr);
+                } else {
+                    $dateObj = \Carbon\Carbon::createFromFormat('d/m/Y H:i:s', $dateTimeStr);
+                }
+
+                $recordMonthYear = $dateObj->format('Y-m');
+                if ($recordMonthYear !== $selectedMonthYear) continue;
+
+                $dateKey = $dateObj->format('Y-m-d');
+
+                if (!isset($attendanceData[$name])) {
+                    $attendanceData[$name] = [
+                        'name' => $name,
+                        'present_days' => [], // To count unique days
+                        'late_count' => 0,
+                        'present' => 0,
+                        'late' => 0,
+                        'absent' => 0,
+                        'leave' => 0,
+                    ];
+                }
+
+                // If it's the first record of the day for this person, check if late
+                if (!isset($attendanceData[$name]['present_days'][$dateKey])) {
+                    $attendanceData[$name]['present_days'][$dateKey] = $dateObj->format('H:i:s');
+                    $attendanceData[$name]['present']++;
+                    
+                    if ($dateObj->format('H:i:s') > $standardEntryTime) {
+                        $attendanceData[$name]['late']++;
+                    }
+                } else {
+                    // Update if this record is earlier than the stored one (to find scan masuk)
+                    if ($dateObj->format('H:i:s') < $attendanceData[$name]['present_days'][$dateKey]) {
+                        // Previous record was late, check if this one is not
+                        $wasLate = $attendanceData[$name]['present_days'][$dateKey] > $standardEntryTime;
+                        $isLate = $dateObj->format('H:i:s') > $standardEntryTime;
+                        
+                        if ($wasLate && !$isLate) {
+                            $attendanceData[$name]['late']--;
+                        }
+                        
+                        $attendanceData[$name]['present_days'][$dateKey] = $dateObj->format('H:i:s');
+                    }
+                }
+
+            } catch (\Exception $e) {
+                \Log::warning("Failed to parse date: $dateTimeStr for $name");
+                continue;
             }
         }
 
         if (empty($attendanceData)) {
-            return redirect()->route('rekap.index')->with('error', 'Tidak ada data valid yang ditemukan sesuai format kolom (Nama di Kolom A, Status di Kolom C).');
+            return redirect()->route('rekap.index')->with('error', 'Tidak ada data ditemukan untuk bulan ' . $selectedMonthYear . '. Pastikan data di file XLSX sesuai dengan bulan yang dipilih.');
         }
 
-        Session::put('attendanceData', array_values($attendanceData));
+        $finalData = collect($attendanceData)->map(function($item) {
+            unset($item['present_days']); // Clean up internal helper
+            return $item;
+        })->values()->toArray();
+
+        Session::put('attendanceData', $finalData);
+
 
         Session::put('selectedMonth', $request->month_year);
 

@@ -1,29 +1,32 @@
 @extends('layouts.app')
 
-@section('title', 'Setting Aplikasi')
+@section('title', 'Pengaturan Sistem')
 
 @section('content')
-<div class="card lg:w-1/2">
-    <div class="card-header">
-        <h5>Konfigurasi Umum</h5>
-    </div>
-    <div class="card-body">
-        <form action="{{ route('settings.update') }}" method="POST">
-            @csrf
-            <div class="mb-3">
-                <label class="form-label">Nama Perusahaan</label>
-                <input type="text" class="form-control" value="My Company">
+<div class="grid grid-cols-12 gap-x-6">
+    <div class="col-span-12 lg:col-span-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Konfigurasi Jam Kerja</h5>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Email Notifikasi</label>
-                <input type="email" class="form-control" value="admin@company.com">
+            <div class="card-body">
+                <form action="{{ route('settings.update') }}" method="POST">
+                    @csrf
+                    <div class="mb-4">
+                        <label class="form-label">Batas Scan Masuk (Pagi)</label>
+                        <p class="text-muted small">Karyawan dianggap terlambat jika scan setelah jam ini.</p>
+                        <input type="time" name="check_in_limit" class="form-control" value="{{ $settings['check_in_limit'] ?? '08:00' }}" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">Batas Scan Pulang (Sore)</label>
+                        <p class="text-muted small">Scan terakhir dianggap "Pulang" jika setelah jam ini.</p>
+                        <input type="time" name="check_out_limit" class="form-control" value="{{ $settings['check_out_limit'] ?? '17:00' }}" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Simpan Pengaturan</button>
+                </form>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Jam Masuk Standar</label>
-                <input type="time" class="form-control" value="08:00">
-            </div>
-            <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
-        </form>
+        </div>
     </div>
 </div>
 @endsection
+

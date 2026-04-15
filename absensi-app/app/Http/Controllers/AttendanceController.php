@@ -15,6 +15,7 @@ class AttendanceController extends Controller
         return view('rekap.index', compact('attendanceData', 'selectedMonth'));
     }
 
+
     public function import(Request $request)
     {
         $request->validate([
@@ -22,6 +23,11 @@ class AttendanceController extends Controller
             'month_year' => 'required'
         ]);
 
+        $settingsPath = storage_path('app/settings.json');
+        $settings = file_exists($settingsPath) ? json_decode(file_get_contents($settingsPath), true) : ['check_in_limit' => '08:00', 'check_out_limit' => '17:00'];
+        
+        $checkInLimit = $settings['check_in_limit'];
+        $checkOutLimit = $settings['check_out_limit'];
 
         $file = $request->file('file');
         
@@ -37,9 +43,6 @@ class AttendanceController extends Controller
         }
 
         $selectedMonthYear = $request->month_year; 
-
-        
-        $standardEntryTime = "08:00:00";
         $attendanceData = [];
 
         foreach ($data as $rows) {
@@ -47,6 +50,7 @@ class AttendanceController extends Controller
 
             for ($i = 1; $i < count($rows); $i++) {
                 $name = $rows[$i][1] ?? null; 
+                $id = $rows[$i][2] ?? '-'; // Column C (No.ID)
                 $dateTimeStr = $rows[$i][3] ?? null; 
 
                 if (!$name || !$dateTimeStr) continue;
@@ -69,25 +73,46 @@ class AttendanceController extends Controller
 
                     $dateKey = $dateObj->format('Y-m-d');
                     $name = trim($name);
+                    $dept = trim($rows[$i][0] ?? '-'); 
+                    $key = $name . '_' . $id;
 
-                    if (!isset($attendanceData[$name])) {
-                        $attendanceData[$name] = [
+                    if (!isset($attendanceData[$key])) {
+                        // Daftarkan ke Database jika belum ada
+                        \App\Models\Employee::firstOrCreate(
+                            ['employee_id' => $id],
+                            ['name' => $name, 'department' => $dept]
+                        );
+
+                        $attendanceData[$key] = [
+                            'id' => $id,
                             'name' => $name,
+                            'department' => $dept,
                             'present_days' => [], 
-                            'present' => 0, 'late' => 0, 'absent' => 0, 'leave' => 0,
+                            'present' => 0,
+                            'late' => 0,
+                            'out' => 0,
+                            'absent' => 0,
+                            'leave' => 0,
                         ];
                     }
 
-                    if (!isset($attendanceData[$name]['present_days'][$dateKey])) {
-                        $attendanceData[$name]['present_days'][$dateKey] = $dateObj->format('H:i:s');
-                        $attendanceData[$name]['present']++;
-                        if ($dateObj->format('H:i:s') > $standardEntryTime) $attendanceData[$name]['late']++;
+
+                    $currentTime = $dateObj->format('H:i:s');
+
+                    if (!isset($attendanceData[$key]['present_days'][$dateKey])) {
+                        $attendanceData[$key]['present_days'][$dateKey] = [
+                            'first' => $currentTime,
+                            'last' => $currentTime
+                        ];
+                        $attendanceData[$key]['present']++;
                     } else {
-                        if ($dateObj->format('H:i:s') < $attendanceData[$name]['present_days'][$dateKey]) {
-                            $wasLate = $attendanceData[$name]['present_days'][$dateKey] > $standardEntryTime;
-                            $isLate = $dateObj->format('H:i:s') > $standardEntryTime;
-                            if ($wasLate && !$isLate) $attendanceData[$name]['late']--;
-                            $attendanceData[$name]['present_days'][$dateKey] = $dateObj->format('H:i:s');
+                        // Update earliest scan
+                        if ($currentTime < $attendanceData[$key]['present_days'][$dateKey]['first']) {
+                            $attendanceData[$key]['present_days'][$dateKey]['first'] = $currentTime;
+                        }
+                        // Update latest scan
+                        if ($currentTime > $attendanceData[$key]['present_days'][$dateKey]['last']) {
+                            $attendanceData[$key]['present_days'][$dateKey]['last'] = $currentTime;
                         }
                     }
                 } catch (\Exception $e) { continue; }
@@ -95,17 +120,27 @@ class AttendanceController extends Controller
         }
 
         if (empty($attendanceData)) {
-            return redirect()->route('rekap.index')->with('error', "Data pada bulan $selectedMonthYear tidak ditemukan di dalam file.");
+            return redirect()->route('rekap.index')->with('error', "Data pada bulan $selectedMonthYear tidak ditemukan. Pastikan kolom sesuai dan bulan dipilih dengan benar.");
         }
 
-        $finalData = collect($attendanceData)->map(function($item) {
-            unset($item['present_days']); return $item;
+        // Final calculation for Late and Out based on first/last scans
+        $finalData = collect($attendanceData)->map(function($item) use ($checkInLimit, $checkOutLimit) {
+            foreach ($item['present_days'] as $day) {
+                if ($day['first'] > $checkInLimit . ':00') {
+                    $item['late']++;
+                }
+                if ($day['last'] >= $checkOutLimit . ':00') {
+                    $item['out']++;
+                }
+            }
+            unset($item['present_days']);
+            return $item;
         })->values()->toArray();
 
         Session::put('attendanceData', $finalData);
         Session::put('selectedMonth', $selectedMonthYear);
 
-        return redirect()->route('rekap.index')->with('success', 'Data berhasil diimport dan direkap.');
+        return redirect()->route('rekap.index')->with('success', 'Data berhasil direkap dengan ID dan Jam Pulang.');
     }
 
 

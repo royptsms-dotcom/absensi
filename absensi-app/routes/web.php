@@ -21,6 +21,9 @@ Route::prefix('rekap')->name('rekap.')->group(function () {
     Route::get('/export', [AttendanceController::class, 'export'])->name('export');
 });
 
-Route::resource('employees', EmployeeController::class);
+Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
+Route::get('/employees/{id}/edit', [EmployeeController::class, 'edit'])->name('employees.edit');
+Route::post('/employees/{id}/update', [EmployeeController::class, 'update'])->name('employees.update');
+
 Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
 Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');

@@ -8,6 +8,25 @@ class EmployeeController extends Controller
 {
     public function index()
     {
-        return view('employees.index');
+        $employees = \App\Models\Employee::all();
+        return view('employees.index', compact('employees'));
     }
+
+    public function edit($id)
+    {
+        $employee = \App\Models\Employee::findOrFail($id);
+        return view('employees.edit', compact('employee'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $employee = \App\Models\Employee::findOrFail($id);
+        $employee->update([
+            'name' => $request->name,
+            'department' => $request->department,
+        ]);
+
+        return redirect()->route('employees.index')->with('success', 'Data karyawan berhasil diperbarui.');
+    }
+
 }

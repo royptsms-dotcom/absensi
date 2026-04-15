@@ -40,26 +40,36 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
+                                <th>ID</th>
                                 <th>Nama Karyawan</th>
                                 <th>Hadir</th>
-                                <th>Terlambat</th>
-                                <th>Alpa</th>
-                                <th>Izin/Sakit</th>
+                                <th class="text-danger">Terlambat</th>
+                                <th class="text-primary">Pulang</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach($attendanceData as $row)
                             <tr>
-                                <td>{{ $row['name'] }}</td>
-                                <td>{{ $row['present'] }}</td>
-                                <td>{{ $row['late'] }}</td>
-                                <td>{{ $row['absent'] }}</td>
-                                <td>{{ $row['leave'] }}</td>
+                                <td>{{ $row['id'] ?? '-' }}</td>
+                                <td>{{ $row['name'] ?? 'Tanpa Nama' }}</td>
+                                <td>{{ $row['present'] ?? 0 }} hari</td>
+                                <td>
+                                    <span class="badge {{ ($row['late'] ?? 0) > 0 ? 'bg-light-danger text-danger' : 'bg-light-success text-success' }}">
+                                        {{ $row['late'] ?? 0 }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {{ ($row['out'] ?? 0) > 0 ? 'bg-light-primary text-primary' : 'bg-light-secondary text-secondary' }}">
+                                        {{ $row['out'] ?? 0 }}
+                                    </span>
+                                </td>
                             </tr>
                             @endforeach
+
                         </tbody>
                     </table>
                 </div>
+
             </div>
         </div>
     </div>

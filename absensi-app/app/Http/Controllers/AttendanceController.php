@@ -23,25 +23,18 @@ class AttendanceController extends Controller
         ]);
 
         $file = $request->file('file');
-        $data = Excel::toArray([], $file);
-        
-        // DEBUG: Lihat isi data Excel
-        dd($data); 
-
-        $selectedMonthYear = $request->month_year; // YYYY-MM
-
-
+        $data = \Maatwebsite\Excel\Facades\Excel::toArray([], $file);
+        $selectedMonthYear = $request->month_year; 
         
         $standardEntryTime = "08:00:00";
         $attendanceData = [];
 
-        // Loop through all sheets
-        foreach ($data as $sheetIndex => $rows) {
+        foreach ($data as $rows) {
             if (count($rows) <= 1) continue; 
 
             for ($i = 1; $i < count($rows); $i++) {
-                $name = $rows[$i][1] ?? null; // Column B
-                $dateTimeStr = $rows[$i][3] ?? null; // Column D
+                $name = $rows[$i][1] ?? null; 
+                $dateTimeStr = $rows[$i][3] ?? null; 
 
                 if (!$name || !$dateTimeStr) continue;
 
@@ -52,10 +45,7 @@ class AttendanceController extends Controller
                     } else {
                         $formats = ['d/m/Y H:i:s', 'd/m/Y H:i', 'Y-m-d H:i:s', 'd-m-Y H:i:s', 'm/d/Y H:i:s'];
                         foreach ($formats as $format) {
-                            try {
-                                $dateObj = \Carbon\Carbon::createFromFormat($format, $dateTimeStr);
-                                break;
-                            } catch (\Exception $e) { continue; }
+                            try { $dateObj = \Carbon\Carbon::createFromFormat($format, $dateTimeStr); break; } catch (\Exception $e) {}
                         }
                     }
 
@@ -71,53 +61,42 @@ class AttendanceController extends Controller
                         $attendanceData[$name] = [
                             'name' => $name,
                             'present_days' => [], 
-                            'present' => 0,
-                            'late' => 0,
-                            'absent' => 0,
-                            'leave' => 0,
+                            'present' => 0, 'late' => 0, 'absent' => 0, 'leave' => 0,
                         ];
                     }
 
                     if (!isset($attendanceData[$name]['present_days'][$dateKey])) {
                         $attendanceData[$name]['present_days'][$dateKey] = $dateObj->format('H:i:s');
                         $attendanceData[$name]['present']++;
-                        
-                        if ($dateObj->format('H:i:s') > $standardEntryTime) {
-                            $attendanceData[$name]['late']++;
-                        }
+                        if ($dateObj->format('H:i:s') > $standardEntryTime) $attendanceData[$name]['late']++;
                     } else {
                         if ($dateObj->format('H:i:s') < $attendanceData[$name]['present_days'][$dateKey]) {
                             $wasLate = $attendanceData[$name]['present_days'][$dateKey] > $standardEntryTime;
                             $isLate = $dateObj->format('H:i:s') > $standardEntryTime;
-                            
-                            if ($wasLate && !$isLate) {
-                                $attendanceData[$name]['late']--;
-                            }
+                            if ($wasLate && !$isLate) $attendanceData[$name]['late']--;
                             $attendanceData[$name]['present_days'][$dateKey] = $dateObj->format('H:i:s');
                         }
                     }
-
                 } catch (\Exception $e) { continue; }
             }
         }
 
         if (empty($attendanceData)) {
-            $totalFound = 0;
-            foreach($data as $s) $totalFound += (count($s) - 1);
-            return redirect()->route('rekap.index')->with('error', "Data kosong: Ditemukan total $totalFound baris data, namun tidak ada yang cocok dengan bulan $selectedMonthYear. Mohon periksa kembali pilihan Bulan/Tahun Anda.");
+            return redirect()->route('rekap.index')->with('error', "Data pada bulan $selectedMonthYear tidak ditemukan di dalam file.");
         }
 
         $finalData = collect($attendanceData)->map(function($item) {
-            unset($item['present_days']);
-            return $item;
+            unset($item['present_days']); return $item;
         })->values()->toArray();
 
         Session::put('attendanceData', $finalData);
         Session::put('selectedMonth', $selectedMonthYear);
 
         return redirect()->route('rekap.index')->with('success', 'Data berhasil diimport dan direkap.');
-
     }
+
+
+
 
     public function export(Request $request)
     {

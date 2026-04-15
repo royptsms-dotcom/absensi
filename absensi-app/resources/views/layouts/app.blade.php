@@ -156,6 +156,7 @@
         </div>
     </footer>
 
+    <!-- [ Main Content ] end -->
     <!-- Required Js -->
     <script src="{{ asset('assets/js/plugins/simplebar.min.js') }}"></script>
     <script src="{{ asset('assets/js/plugins/popper.min.js') }}"></script>
@@ -176,5 +177,6 @@
         preset_change('preset-1');
         main_layout_change('vertical');
     </script>
+
 </body>
 </html>

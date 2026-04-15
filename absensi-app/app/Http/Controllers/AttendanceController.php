@@ -96,25 +96,29 @@ class AttendanceController extends Controller
                         ];
                     }
 
-
                     $currentTime = $dateObj->format('H:i:s');
+                    $isMorning = $currentTime < '12:00:00';
 
                     if (!isset($attendanceData[$key]['present_days'][$dateKey])) {
                         $attendanceData[$key]['present_days'][$dateKey] = [
-                            'first' => $currentTime,
-                            'last' => $currentTime
+                            'first' => $isMorning ? $currentTime : '-',
+                            'last' => !$isMorning ? $currentTime : '-'
                         ];
                         $attendanceData[$key]['present']++;
                     } else {
-                        // Update earliest scan
-                        if ($currentTime < $attendanceData[$key]['present_days'][$dateKey]['first']) {
-                            $attendanceData[$key]['present_days'][$dateKey]['first'] = $currentTime;
-                        }
-                        // Update latest scan
-                        if ($currentTime > $attendanceData[$key]['present_days'][$dateKey]['last']) {
-                            $attendanceData[$key]['present_days'][$dateKey]['last'] = $currentTime;
+                        if ($isMorning) {
+                            // Update earliest morning scan
+                            if ($attendanceData[$key]['present_days'][$dateKey]['first'] == '-' || $currentTime < $attendanceData[$key]['present_days'][$dateKey]['first']) {
+                                $attendanceData[$key]['present_days'][$dateKey]['first'] = $currentTime;
+                            }
+                        } else {
+                            // Update latest afternoon scan
+                            if ($attendanceData[$key]['present_days'][$dateKey]['last'] == '-' || $currentTime > $attendanceData[$key]['present_days'][$dateKey]['last']) {
+                                $attendanceData[$key]['present_days'][$dateKey]['last'] = $currentTime;
+                            }
                         }
                     }
+
                 } catch (\Exception $e) { continue; }
             }
         }
@@ -126,16 +130,18 @@ class AttendanceController extends Controller
         // Final calculation for Late and Out based on first/last scans
         $finalData = collect($attendanceData)->map(function($item) use ($checkInLimit, $checkOutLimit) {
             foreach ($item['present_days'] as $day) {
-                if ($day['first'] > $checkInLimit . ':00') {
+                if ($day['first'] !== '-' && $day['first'] > $checkInLimit . ':00') {
                     $item['late']++;
                 }
-                if ($day['last'] >= $checkOutLimit . ':00') {
+                if ($day['last'] !== '-' && $day['last'] >= $checkOutLimit . ':00') {
                     $item['out']++;
                 }
             }
-            unset($item['present_days']);
+            // unset($item['present_days']); // Jangan hapus ini agar bisa dipreview
             return $item;
         })->values()->toArray();
+
+
 
         Session::put('attendanceData', $finalData);
         Session::put('selectedMonth', $selectedMonthYear);

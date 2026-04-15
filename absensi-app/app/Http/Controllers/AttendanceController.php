@@ -32,28 +32,65 @@ class AttendanceController extends Controller
         $file = $request->file('file');
         
         try {
-            // Auto detect format
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
-            $data = [];
-            foreach ($spreadsheet->getWorksheetIterator() as $worksheet) {
-                $data[] = $worksheet->toArray();
+            $filePath = $file->getRealPath();
+            $spreadsheet = null;
+            
+            // List semua "Kunci" (Reader) yang mungkin bisa membuka file ini
+            $readers = [
+                'Xlsx', 'Xls', 'Html', 'Csv', 'Xml'
+            ];
+
+            foreach ($readers as $type) {
+                try {
+                    $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader($type);
+                    // Jika CSV, coba gunakan Tab sebagai pemisah (Sering di mesin absensi)
+                    if ($type == 'Csv') {
+                        $reader->setDelimiter("\t");
+                    }
+                    
+                    if ($reader->canRead($filePath)) {
+                        $reader->setReadDataOnly(true);
+                        $spreadsheet = $reader->load($filePath);
+                        break; // BERHASIL! Berhenti mencoba yang lain
+                    }
+                } catch (\Exception $e) { continue; }
             }
+
+            // Jika masih gagal kabeh, coba paksa load otomatis
+            if (!$spreadsheet) {
+                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
+            }
+
+            $worksheet = $spreadsheet->getActiveSheet();
+            $rows = $worksheet->toArray();
+            $data = [$rows]; 
         } catch (\Exception $e) {
-            return redirect()->route('rekap.index')->with('error', 'Gagal membaca format file: ' . $e->getMessage());
+            return redirect()->route('rekap.index')->with('error', 'File ini tidak bisa dibuka oleh server (Mungkin dipassword atau korup). Solusi: Buka file di Excel PC Anda, lalu "Save As" ke format "Excel Workbook (.xlsx)" baru kemudian upload kesini. Error: ' . $e->getMessage());
         }
+
+
+
 
         $selectedMonthYear = $request->month_year; 
         $attendanceData = [];
+        $totalRecordsFound = 0;
 
         foreach ($data as $rows) {
             if (count($rows) <= 1) continue; 
 
+            $emptyCounter = 0;
             for ($i = 1; $i < count($rows); $i++) {
                 $name = $rows[$i][1] ?? null; 
-                $id = $rows[$i][2] ?? '-'; // Column C (No.ID)
+                $id = $rows[$i][2] ?? '-';
                 $dateTimeStr = $rows[$i][3] ?? null; 
 
-                if (!$name || !$dateTimeStr) continue;
+                // Jika baris benar-benar kosong, hitung. Jika sudah 5x kosong beruntun, anggap data sudah habis (Break)
+                if (empty($name) && empty($dateTimeStr)) {
+                    $emptyCounter++;
+                    if ($emptyCounter > 5) break; 
+                    continue;
+                }
+                $emptyCounter = 0; // Reset jika ketemu data lagi
 
                 try {
                     $dateObj = null;
@@ -71,19 +108,17 @@ class AttendanceController extends Controller
                     $recordMonthYear = $dateObj->format('Y-m');
                     if ($recordMonthYear !== $selectedMonthYear) continue;
 
+                    $totalRecordsFound++;
                     $dateKey = $dateObj->format('Y-m-d');
                     $name = ucwords(strtolower(trim($name)));
                     $dept = trim($rows[$i][0] ?? '-'); 
                     $key = $name . '_' . $id;
 
-
                     if (!isset($attendanceData[$key])) {
-                        // Daftarkan/Update ke Database agar nama selalu rapi
                         \App\Models\Employee::updateOrCreate(
                             ['employee_id' => $id],
                             ['name' => $name, 'department' => $dept]
                         );
-
 
                         $attendanceData[$key] = [
                             'id' => $id,
@@ -109,12 +144,10 @@ class AttendanceController extends Controller
                         $attendanceData[$key]['present']++;
                     } else {
                         if ($isMorning) {
-                            // Update earliest morning scan
                             if ($attendanceData[$key]['present_days'][$dateKey]['first'] == '-' || $currentTime < $attendanceData[$key]['present_days'][$dateKey]['first']) {
                                 $attendanceData[$key]['present_days'][$dateKey]['first'] = $currentTime;
                             }
                         } else {
-                            // Update latest afternoon scan
                             if ($attendanceData[$key]['present_days'][$dateKey]['last'] == '-' || $currentTime > $attendanceData[$key]['present_days'][$dateKey]['last']) {
                                 $attendanceData[$key]['present_days'][$dateKey]['last'] = $currentTime;
                             }
@@ -124,6 +157,7 @@ class AttendanceController extends Controller
                 } catch (\Exception $e) { continue; }
             }
         }
+
 
         if (empty($attendanceData)) {
             return redirect()->route('rekap.index')->with('error', "Data pada bulan $selectedMonthYear tidak ditemukan. Pastikan kolom sesuai dan bulan dipilih dengan benar.");

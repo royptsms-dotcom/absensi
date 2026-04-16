@@ -296,7 +296,7 @@ class AttendanceController extends Controller
         Session::put('attendanceData', $finalData);
         Session::put('selectedMonth', $selectedMonthYear);
 
-        return redirect()->route('rekap.index')->with('success', 'Data berhasil direkap dengan ID dan Jam Pulang.');
+        return redirect()->route('rekap.index');
     }
 
 

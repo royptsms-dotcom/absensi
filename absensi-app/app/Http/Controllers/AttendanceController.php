@@ -243,22 +243,23 @@ class AttendanceController extends Controller
                     }
 
                     $currentTime = $dateObj->format('H:i:s');
+                    $isMorning = $currentTime < '12:00:00';
                     
                     if (!isset($attendanceData[$key]['present_days'][$dateKey])) {
                         $attendanceData[$key]['present_days'][$dateKey] = [
-                            'first' => $currentTime,
-                            'last' => '-'
+                            'first' => $isMorning ? $currentTime : '-',
+                            'last' => !$isMorning ? $currentTime : '-'
                         ];
                         $attendanceData[$key]['present']++;
                     } else {
-                        $dayData = $attendanceData[$key]['present_days'][$dateKey];
-                        if ($currentTime < $dayData['first']) {
-                            if ($dayData['last'] == '-' || $dayData['first'] > $dayData['last']) {
-                                $attendanceData[$key]['present_days'][$dateKey]['last'] = $dayData['first'];
+                        if ($isMorning) {
+                            if ($attendanceData[$key]['present_days'][$dateKey]['first'] == '-' || $currentTime < $attendanceData[$key]['present_days'][$dateKey]['first']) {
+                                $attendanceData[$key]['present_days'][$dateKey]['first'] = $currentTime;
                             }
-                            $attendanceData[$key]['present_days'][$dateKey]['first'] = $currentTime;
-                        } elseif ($dayData['last'] == '-' || $currentTime > $dayData['last']) {
-                            $attendanceData[$key]['present_days'][$dateKey]['last'] = $currentTime;
+                        } else {
+                            if ($attendanceData[$key]['present_days'][$dateKey]['last'] == '-' || $currentTime > $attendanceData[$key]['present_days'][$dateKey]['last']) {
+                                $attendanceData[$key]['present_days'][$dateKey]['last'] = $currentTime;
+                            }
                         }
                     }
 

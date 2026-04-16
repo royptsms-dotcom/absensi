@@ -25,6 +25,8 @@ Route::prefix('rekap')->name('rekap.')->group(function () {
 Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
 Route::get('/employees/{id}/edit', [EmployeeController::class, 'edit'])->name('employees.edit');
 Route::post('/employees/{id}/update', [EmployeeController::class, 'update'])->name('employees.update');
+Route::post('/employees/{id}/delete', [EmployeeController::class, 'destroy'])->name('employees.destroy');
+Route::post('/employees/truncate', [EmployeeController::class, 'destroyAll'])->name('employees.truncate');
 
 Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
 Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');

@@ -76,7 +76,7 @@
                             @endphp
                             @foreach($attendanceData as $row)
                             <tr>
-                                <td>{{ $row['id'] ?? '-' }}</td>
+                                <td>{{ !empty($row['id']) ? $row['id'] : '-' }}</td>
                                 <td>{{ $row['name'] ?? 'Tanpa Nama' }}</td>
                                 <td class="text-center">{{ $row['present'] ?? 0 }} hari</td>
                                 <td class="text-center">

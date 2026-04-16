@@ -7,6 +7,12 @@
     <div class="card">
         <div class="card-header flex justify-between items-center">
             <h5>Daftar Karyawan</h5>
+            <form action="{{ route('employees.truncate') }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus SEMUA data karyawan?')">
+                @csrf
+                <button type="submit" class="btn btn-sm btn-danger shadow-sm">
+                    Kosongkan Semua Data
+                </button>
+            </form>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -28,7 +34,11 @@
                             <td>{{ $emp->name }}</td>
                             <td>{{ $emp->department }}</td>
                             <td class="text-center">
-                                <a href="{{ route('employees.edit', $emp->id) }}" class="btn btn-sm btn-primary">Edit</a>
+                                <form action="{{ route('employees.destroy', $emp->id) }}" method="POST" class="d-inline">
+                                    @csrf
+                                    <a href="{{ route('employees.edit', $emp->id) }}" class="btn btn-sm btn-primary">Edit</a>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Hapus karyawan ini?')">Hapus</button>
+                                </form>
                             </td>
                         </tr>
                         @empty

@@ -30,4 +30,15 @@ class EmployeeController extends Controller
         return redirect()->route('employees.index')->with('success', 'Data karyawan berhasil diperbarui.');
     }
 
+    public function destroy($id)
+    {
+        \App\Models\Employee::findOrFail($id)->delete();
+        return redirect()->route('employees.index')->with('success', 'Karyawan berhasil dihapus.');
+    }
+
+    public function destroyAll()
+    {
+        \App\Models\Employee::truncate();
+        return redirect()->route('employees.index')->with('success', 'Semua data karyawan telah dibersihkan.');
+    }
 }
